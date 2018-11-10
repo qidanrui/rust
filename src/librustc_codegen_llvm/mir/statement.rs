@@ -105,7 +105,6 @@ impl FunctionCx<'a, 'll, 'tcx> {
                 bx
             }
             mir::StatementKind::FakeRead(..) |
-            mir::StatementKind::EndRegion(..) |
             mir::StatementKind::Retag { .. } |
             mir::StatementKind::EscapeToRaw { .. } |
             mir::StatementKind::AscribeUserType(..) |
