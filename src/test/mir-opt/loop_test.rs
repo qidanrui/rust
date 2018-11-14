@@ -28,16 +28,15 @@ fn main() {
 // END RUST SOURCE
 // START rustc.main.SimplifyCfg-qualify-consts.after.mir
 //    ...
-//    bb1: { // The cleanup block
-//        resume;
-//    }
-//    ...
-//    bb3: { // Entry into the loop
+//    bb2: { // Entry into the loop
 //        _1 = ();
 //        goto -> bb4;
 //    }
+//    bb3: { // The cleanup block
+//        resume;
+//    }
 //    bb4: { // The loop_block
-//        falseUnwind -> [real: bb5, cleanup: bb1];
+//        falseUnwind -> [real: bb5, cleanup: bb3];
 //    }
 //    bb5: { // The loop body (body_block)
 //        StorageLive(_5);

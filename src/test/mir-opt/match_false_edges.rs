@@ -57,47 +57,47 @@ fn main() {
 //      _7 = discriminant(_2);
 //      _9 = &shallow (promoted[2]: std::option::Option<i32>);
 //      _10 = &(((promoted[1]: std::option::Option<i32>) as Some).0: i32);
-//      switchInt(move _7) -> [0isize: bb5, 1isize: bb3, otherwise: bb7];
+//      switchInt(move _7) -> [0isize: bb4, 1isize: bb2, otherwise: bb6];
 //  }
-//  bb1: {
-//      resume;
-//  }
-//  bb2: {  // arm1
+//  bb1: {  // arm1
 //      _1 = (const 3i32, const 3i32);
 //      goto -> bb13;
 //  }
-//  bb3: { // binding3(empty) and arm3
+//  bb2: { // binding3(empty) and arm3
 //      FakeRead(ForMatchGuard, _9);
 //      FakeRead(ForMatchGuard, _10);
-//      falseEdges -> [real: bb8, imaginary: bb4]; //pre_binding1
+//      falseEdges -> [real: bb7, imaginary: bb3]; //pre_binding1
+//  }
+//  bb3: {
+//      FakeRead(ForMatchGuard, _9);
+//      FakeRead(ForMatchGuard, _10);
+//      falseEdges -> [real: bb12, imaginary: bb4]; //pre_binding2
 //  }
 //  bb4: {
 //      FakeRead(ForMatchGuard, _9);
 //      FakeRead(ForMatchGuard, _10);
-//      falseEdges -> [real: bb12, imaginary: bb5]; //pre_binding2
+//      falseEdges -> [real: bb1, imaginary: bb5]; //pre_binding3
 //  }
 //  bb5: {
-//      FakeRead(ForMatchGuard, _9);
-//      FakeRead(ForMatchGuard, _10);
-//      falseEdges -> [real: bb2, imaginary: bb6]; //pre_binding3
+//      unreachable;
 //  }
 //  bb6: {
 //      unreachable;
 //  }
-//  bb7: {
-//      unreachable;
-//  }
-//  bb8: { // binding1 and guard
+//  bb7: { // binding1 and guard
 //      StorageLive(_5);
 //      _5 = &(((promoted[0]: std::option::Option<i32>) as Some).0: i32);
 //      StorageLive(_8);
-//      _8 = const guard() -> [return: bb9, unwind: bb1];
+//      _8 = const guard() -> [return: bb8, unwind: bb9];
 //  }
-//  bb9: {
+//  bb8: {
 //      switchInt(move _8) -> [false: bb10, otherwise: bb11];
 //  }
+//  bb9: {
+//      resume;
+//  }
 //  bb10: { // to pre_binding2
-//      falseEdges -> [real: bb4, imaginary: bb4];
+//      falseEdges -> [real: bb3, imaginary: bb3];
 //  }
 //  bb11: { // bindingNoLandingPads.before.mir2 and arm2
 //      StorageLive(_3);
@@ -131,47 +131,47 @@ fn main() {
 //      _7 = discriminant(_2);
 //      _9 = &shallow _2;
 //      _10 = &((_2 as Some).0: i32);
-//      switchInt(move _7) -> [0isize: bb4, 1isize: bb3, otherwise: bb7];
+//      switchInt(move _7) -> [0isize: bb3, 1isize: bb2, otherwise: bb6];
 //  }
-//  bb1: {
-//      resume;
-//  }
-//  bb2: { // arm2
+//  bb1: { // arm2
 //      _1 = (const 3i32, const 3i32);
 //      goto -> bb13;
+//  }
+//  bb2: {
+//      FakeRead(ForMatchGuard, _9);
+//      FakeRead(ForMatchGuard, _10);
+//      falseEdges -> [real: bb7, imaginary: bb3]; //pre_binding1
 //  }
 //  bb3: {
 //      FakeRead(ForMatchGuard, _9);
 //      FakeRead(ForMatchGuard, _10);
-//      falseEdges -> [real: bb8, imaginary: bb4]; //pre_binding1
+//      falseEdges -> [real: bb1, imaginary: bb4]; //pre_binding2
 //  }
 //  bb4: {
 //      FakeRead(ForMatchGuard, _9);
 //      FakeRead(ForMatchGuard, _10);
-//      falseEdges -> [real: bb2, imaginary: bb5]; //pre_binding2
+//      falseEdges -> [real: bb12, imaginary: bb5]; //pre_binding3
 //  }
 //  bb5: {
-//      FakeRead(ForMatchGuard, _9);
-//      FakeRead(ForMatchGuard, _10);
-//      falseEdges -> [real: bb12, imaginary: bb6]; //pre_binding3
+//      unreachable;
 //  }
 //  bb6: {
 //      unreachable;
 //  }
-//  bb7: {
-//      unreachable;
-//  }
-//  bb8: { // binding1 and guard
+//  bb7: { // binding1 and guard
 //      StorageLive(_5);
 //      _5 = &((_2 as Some).0: i32);
 //      StorageLive(_8);
-//      _8 = const guard() -> [return: bb9, unwind: bb1];
+//      _8 = const guard() -> [return: bb8, unwind: bb9];
 //  }
-//  bb9: { // end of guard
+//  bb8: { // end of guard
 //      switchInt(move _8) -> [false: bb10, otherwise: bb11];
 //  }
+//  bb9: {
+//      resume;
+//  }
 //  bb10: { // to pre_binding3 (can skip 2 since this is `Some`)
-//      falseEdges -> [real: bb5, imaginary: bb4];
+//      falseEdges -> [real: bb4, imaginary: bb3];
 //  }
 //  bb11: { // arm1
 //      StorageLive(_3);
@@ -205,45 +205,45 @@ fn main() {
 //     _11 = discriminant(_2);
 //    _16 = &shallow _2;
 //    _17 = &((_2 as Some).0: i32);
-//     switchInt(move _11) -> [1isize: bb2, otherwise: bb3];
+//     switchInt(move _11) -> [1isize: bb1, otherwise: bb2];
 // }
 // bb1: {
-//     resume;
+//      FakeRead(ForMatchGuard, _16);
+//      FakeRead(ForMatchGuard, _17);
+//     falseEdges -> [real: bb6, imaginary: bb2]; //pre_binding1
 // }
 // bb2: {
 //      FakeRead(ForMatchGuard, _16);
 //      FakeRead(ForMatchGuard, _17);
-//     falseEdges -> [real: bb7, imaginary: bb3]; //pre_binding1
+//     falseEdges -> [real: bb11, imaginary: bb3]; //pre_binding2
 // }
 // bb3: {
 //      FakeRead(ForMatchGuard, _16);
 //      FakeRead(ForMatchGuard, _17);
-//     falseEdges -> [real: bb11, imaginary: bb4]; //pre_binding2
+//     falseEdges -> [real: bb12, imaginary: bb4]; //pre_binding3
 // }
 // bb4: {
 //      FakeRead(ForMatchGuard, _16);
 //      FakeRead(ForMatchGuard, _17);
-//     falseEdges -> [real: bb12, imaginary: bb5]; //pre_binding3
+//     falseEdges -> [real: bb16, imaginary: bb5]; //pre_binding4
 // }
 // bb5: {
-//      FakeRead(ForMatchGuard, _16);
-//      FakeRead(ForMatchGuard, _17);
-//     falseEdges -> [real: bb16, imaginary: bb6]; //pre_binding4
-// }
-// bb6: {
 //     unreachable;
 // }
-// bb7: { // binding1: Some(w) if guard()
+// bb6: { // binding1: Some(w) if guard()
 //     StorageLive(_5);
 //     _5 = &((_2 as Some).0: i32);
 //     StorageLive(_12);
-//     _12 = const guard() -> [return: bb8, unwind: bb1];
+//     _12 = const guard() -> [return: bb7, unwind: bb8];
 // }
-// bb8: { //end of guard
+// bb7: { //end of guard
 //     switchInt(move _12) -> [false: bb9, otherwise: bb10];
 // }
+// bb8: {
+//     resume;
+// }
 // bb9: { // to pre_binding2
-//     falseEdges -> [real: bb3, imaginary: bb3];
+//     falseEdges -> [real: bb2, imaginary: bb2];
 // }
 // bb10: { // set up bindings for arm1
 //     StorageLive(_3);
@@ -263,14 +263,14 @@ fn main() {
 //     StorageLive(_14);
 //     StorageLive(_15);
 //     _15 = (*_9);
-//     _14 = const guard2(move _15) -> [return: bb13, unwind: bb1];
+//     _14 = const guard2(move _15) -> [return: bb13, unwind: bb8];
 // }
 // bb13: { // end of guard2
 //     StorageDead(_15);
 //     switchInt(move _14) -> [false: bb14, otherwise: bb15];
 // }
 // bb14: { // to pre_binding4
-//     falseEdges -> [real: bb5, imaginary: bb5];
+//     falseEdges -> [real: bb4, imaginary: bb4];
 // }
 // bb15: { // set up bindings for arm3
 //     StorageLive(_7);
