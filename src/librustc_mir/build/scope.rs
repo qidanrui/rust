@@ -323,7 +323,7 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
                 let parent_hir_id =
                     tcx.hir.definitions().node_to_hir_id(
                         self.source_scope_local_data[source_scope].lint_root
-                            );
+                    );
                 let current_hir_id =
                     tcx.hir.definitions().node_to_hir_id(node_id);
                 sets.lint_level_set(parent_hir_id) ==
@@ -333,7 +333,7 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
             if !same_lint_scopes {
                 self.source_scope =
                     self.new_source_scope(region_scope.1.span, lint_level,
-                                              None);
+                                          None);
             }
         }
         self.push_scope(region_scope);
@@ -455,35 +455,58 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
         if may_panic {
             self.diverge_cleanup();
         }
-        let mut target_blocks = (target, self.resume_block());
 
-        for scope in &mut self.scopes[(len - scope_count)..] {
+        let resume_block = self.resume_block();
+
+        // Start from the last cached block
+        let (mut target_blocks, first_uncached) = self.scopes[(len - scope_count)..].iter()
+            .enumerate()
+            .rev()
+            .find_map(|(idx, scope)| {
+                scope.cached_exits.get(&(target, region_scope.0)).map(|cached_target| {
+                    (
+                        (
+                            *cached_target,
+                            scope.cached_unwind.get(true).unwrap_or_else(|| {
+                                debug_assert!(!may_panic, "cached block not present?");
+                                resume_block
+                            }),
+                        ),
+                        idx + 1,
+                    )
+                })
+            })
+            .unwrap_or_else(|| {
+                let unwind_block = self.scopes[len - scope_count - 1].cached_unwind
+                    .get(true)
+                    .unwrap_or_else(|| {
+                        debug_assert!(!may_panic, "cached block not present?");
+                        resume_block
+                    });
+                ((target, unwind_block), 0)
+            });
+
+        for scope in &mut self.scopes[(len - scope_count + first_uncached)..] {
             if scope.drops.is_empty() {
                 continue;
             }
-            if let Some(&cached) = scope.cached_exits.get(&(target, region_scope.0)) {
-                target_blocks = (cached, scope.cached_unwind.get(false).unwrap_or_else(|| {
-                    debug_assert!(!may_panic, "cached block not present?");
-                    target_blocks.1
-                }));
-            } else {
-                let current_target = self.cfg.start_new_block();
-                self.cfg.terminate(
-                    current_target,
-                    scope.source_info(span),
-                    TerminatorKind::Goto { target: target_blocks.0 },
-                );
-                target_blocks = build_scope_drops(
-                    &mut self.cfg,
-                    current_target,
-                    target_blocks.1,
-                    &scope.drops,
-                    scope,
-                    self.arg_count,
-                    false,
-                );
-                scope.cached_exits.insert((target, region_scope.0), target_blocks.0);
-            };
+
+            let current_target = self.cfg.start_new_block();
+            self.cfg.terminate(
+                current_target,
+                scope.source_info(span),
+                TerminatorKind::Goto { target: target_blocks.0 },
+            );
+            target_blocks = build_scope_drops(
+                &mut self.cfg,
+                current_target,
+                target_blocks.1,
+                &scope.drops,
+                scope,
+                self.arg_count,
+                false,
+            );
+            scope.cached_exits.insert((target, region_scope.0), target_blocks.0);
         }
         self.cfg.terminate(
             block,
@@ -497,56 +520,66 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
     /// This path terminates in GeneratorDrop. Returns the start of the path.
     /// None indicates there’s no cleanup to do at this point.
     pub fn generator_drop_cleanup(&mut self) -> Option<BasicBlock> {
-        // Fill in the cache
+        // Fill in the cache for unwinds
         self.diverge_cleanup_gen(true);
 
         let src_info = self.scopes[0].source_info(self.fn_span);
-        let mut target_blocks = None;
-        let resume_block = self.resume_block();
 
-        for scope in &mut self.scopes {
+        // Start from the last cached block
+        let (mut target_blocks, first_uncached) = self.scopes.iter()
+            .enumerate()
+            .rev()
+            .find_map(|(idx, scope)| {
+                scope.cached_generator_drop.map(|cached_target| {
+                    (
+                        (
+                            cached_target,
+                            scope.cached_unwind.get(true).unwrap_or_else(|| {
+                                span_bug!(src_info.span, "cached block not present?")
+                            }),
+                        ),
+                        idx + 1,
+                    )
+                })
+            })
+            .unwrap_or_else(|| {
+                let generator_drop_block = self.cfg.start_new_block();
+                self.cfg.terminate(generator_drop_block, src_info, TerminatorKind::GeneratorDrop);
+                ((generator_drop_block, self.resume_block()), 0)
+            });
+
+        for scope in &mut self.scopes[first_uncached..] {
             if !scope.needs_cleanup {
                 continue;
             }
-            if let Some(cached) = scope.cached_generator_drop {
-                target_blocks = Some((cached, scope.cached_unwind.get(true).unwrap_or_else(|| {
-                    span_bug!(src_info.span, "cached block not present?")
-                })));
-            } else {
-                let current_target = self.cfg.start_new_block();
-                let unwind_target = if let Some((target, unwind_target)) = target_blocks {
-                    self.cfg.terminate(
-                        current_target,
-                        src_info,
-                        TerminatorKind::Goto { target },
-                    );
-                    unwind_target
-                } else {
-                    self.cfg.terminate(current_target, src_info, TerminatorKind::GeneratorDrop);
-                    resume_block
-                };
-                let next_target_blocks = build_scope_drops(
-                    &mut self.cfg,
-                    current_target,
-                    unwind_target,
-                    &scope.drops,
-                    scope,
-                    self.arg_count,
-                    true,
-                );
-                scope.cached_generator_drop = Some(next_target_blocks.0);
-                target_blocks = Some(next_target_blocks);
-            };
+
+            let current_target = self.cfg.start_new_block();
+            self.cfg.terminate(
+                current_target,
+                src_info,
+                TerminatorKind::Goto { target: target_blocks.0 },
+            );
+
+            target_blocks = build_scope_drops(
+                &mut self.cfg,
+                current_target,
+                target_blocks.1,
+                &scope.drops,
+                scope,
+                self.arg_count,
+                true,
+            );
+            scope.cached_generator_drop = Some(target_blocks.0);
         }
 
-        target_blocks.map(|(target, _)| target)
+        Some(target_blocks.0)
     }
 
     /// Creates a new source scope, nested in the current one.
     pub fn new_source_scope(&mut self,
-                                span: Span,
-                                lint_level: LintLevel,
-                                safety: Option<Safety>) -> SourceScope {
+                            span: Span,
+                            lint_level: LintLevel,
+                            safety: Option<Safety>) -> SourceScope {
         let parent = self.source_scope;
         debug!("new_source_scope({:?}, {:?}, {:?}) - parent({:?})={:?}",
                span, lint_level, safety,
@@ -805,11 +838,6 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
     }
 
     fn diverge_cleanup_gen(&mut self, generator_drop: bool) -> BasicBlock {
-        // To start, create the resume terminator.
-        let mut target = self.resume_block();
-
-        let Builder { ref mut cfg, ref mut scopes, .. } = *self;
-
         // Build up the drops in **reverse** order. The end result will
         // look like:
         //
@@ -821,8 +849,16 @@ impl<'a, 'gcx, 'tcx> Builder<'a, 'gcx, 'tcx> {
         // store caches. If everything is cached, we'll just walk right
         // to left reading the cached results but never created anything.
 
-        for scope in scopes.iter_mut() {
-            target = build_diverge_scope(cfg, scope.region_scope_span,
+        // Find the last cached block
+        let (mut target, first_uncached) = if let Some(cached_index) = self.scopes.iter()
+            .rposition(|scope| scope.cached_unwind.get(generator_drop).is_some()) {
+            (self.scopes[cached_index].cached_unwind.get(generator_drop).unwrap(), cached_index + 1)
+        } else {
+            (self.resume_block(), 0)
+        };
+
+        for scope in self.scopes[first_uncached..].iter_mut() {
+            target = build_diverge_scope(&mut self.cfg, scope.region_scope_span,
                                          scope, target, generator_drop);
         }
 
@@ -999,11 +1035,11 @@ fn push_storage_deads<'tcx>(
 }
 
 fn build_diverge_scope<'tcx>(cfg: &mut CFG<'tcx>,
-                                       span: Span,
-                                       scope: &mut Scope<'tcx>,
-                                       mut target: BasicBlock,
-                                       generator_drop: bool)
-                                       -> BasicBlock
+                             span: Span,
+                             scope: &mut Scope<'tcx>,
+                             mut target: BasicBlock,
+                             generator_drop: bool)
+                             -> BasicBlock
 {
     // Build up the drops in **reverse** order. The end result will
     // look like:
@@ -1014,11 +1050,6 @@ fn build_diverge_scope<'tcx>(cfg: &mut CFG<'tcx>,
     // point, we check for cached blocks representing the
     // remainder. If everything is cached, we'll just walk right to
     // left reading the cached results but never create anything.
-
-    let scope_cached_block = scope.cached_unwind.ref_mut(generator_drop);
-    if let Some(scope_cached_block) = *scope_cached_block {
-        return scope_cached_block;
-    }
 
     let source_scope = scope.source_scope;
     let source_info = |span| SourceInfo {
@@ -1058,7 +1089,7 @@ fn build_diverge_scope<'tcx>(cfg: &mut CFG<'tcx>,
         };
     }
 
-    *scope_cached_block = Some(target);
+    *scope.cached_unwind.ref_mut(generator_drop) = Some(target);
 
     debug!("build_diverge_scope({:?}, {:?}) = {:?}", scope, span, target);
 
