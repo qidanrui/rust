@@ -45,20 +45,20 @@ impl Drop for S {
 //         StorageLive(_1);
 //         StorageLive(_2);
 //         _2 = Box(S);
-//         (*_2) = const S::new() -> [return: bb2, unwind: bb3];
+//         (*_2) = const S::new() -> [return: bb1, unwind: bb3];
 //     }
 //
 //     bb1: {
-//         resume;
-//     }
-//
-//     bb2: {
 //         _1 = move _2;
 //         drop(_2) -> bb4;
 //     }
 //
+//     bb2: {
+//         resume;
+//     }
+//
 //     bb3: {
-//         drop(_2) -> bb1;
+//         drop(_2) -> bb2;
 //     }
 //
 //     bb4: {
@@ -73,7 +73,7 @@ impl Drop for S {
 //     }
 //
 //     bb6: {
-//         drop(_1) -> bb1;
+//         drop(_1) -> bb2;
 //     }
 //
 //     bb7: {

@@ -17,11 +17,11 @@ fn main() {
 // END RUST SOURCE
 // START rustc.main.SimplifyBranches-initial.before.mir
 // bb0: {
-//     switchInt(const false) -> [false: bb3, otherwise: bb2];
+//     switchInt(const false) -> [false: bb2, otherwise: bb1];
 // }
 // END rustc.main.SimplifyBranches-initial.before.mir
 // START rustc.main.SimplifyBranches-initial.after.mir
 // bb0: {
-//     goto -> bb3;
+//     goto -> bb2;
 // }
 // END rustc.main.SimplifyBranches-initial.after.mir

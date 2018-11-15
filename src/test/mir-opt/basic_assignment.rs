@@ -60,10 +60,10 @@ fn main() {
 //        StorageLive(_5);
 //        StorageLive(_6);
 //        _6 = move _4;
-//        replace(_5 <- move _6) -> [return: bb2, unwind: bb5];
+//        replace(_5 <- move _6) -> [return: bb1, unwind: bb5];
 //    }
 //    ...
-//    bb2: {
+//    bb1: {
 //        drop(_6) -> [return: bb6, unwind: bb4];
 //    }
 //    ...
